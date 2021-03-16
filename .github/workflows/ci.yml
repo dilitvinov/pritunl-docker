@@ -1,8 +1,5 @@
 name: CI
 on: [push]
-#  push:
-#    branches:
-#      - master
 
 env:
   DOCKER_IMAGE: docker.io/redavtovo/pritunl
