@@ -7,10 +7,10 @@ services:
       - pritunl
     ports:
       - "27017:27017"
-    restart: always
+    restart: unless-stopped
     volumes:
-      - /opt/mongo/data:/data/db
-      - /opt/pritunl/data:/var/lib/pritunl
+      - mongo:/data/db
+      - pritunl_data:/var/lib/pritunl
   pritunl:
     container_name: pritunl
     build: .
@@ -20,11 +20,17 @@ services:
     networks:
       - pritunl
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
       - "1194:1194/udp"
     privileged: true
-    restart: always
+    restart: unless-stopped
+    environment:
+      MONGODB_SERVER: mongo
+
+volumes:
+  mongo:
+  pritunl_data:
 
 networks:
   pritunl:

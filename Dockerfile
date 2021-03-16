@@ -1,36 +1,49 @@
-FROM alpine:3.10
+FROM ubuntu:focal-20210217 as go-builder
+
+RUN apt-get update \
+    && export DEBIAN_FRONTEND=noninteractive \
+    && apt install -yq git curl \
+    && curl -LO https://get.golang.org/$(uname)/go_installer \
+    && chmod +x go_installer \
+    && SHELL=bash ./go_installer \
+    && rm go_installer
+
+RUN /bin/bash -c "source /root/.bash_profile; export GOPATH=/go; go get github.com/pritunl/pritunl-dns; go get github.com/pritunl/pritunl-web"
+
+
+#----- Runtime
+FROM ubuntu:focal-20210217
 MAINTAINER red <red.avtovo@gmail.com>
+ENV VERSION="1.29.2664.67"
 
-ENV VERSION="1.29.2547.95"
+COPY --from=go-builder /go/bin/* /usr/bin/
 
-# Build deps
-RUN apk --no-cache add --update go git bzr wget py2-pip ip6tables \
-    gcc python python-dev make musl-dev linux-headers libffi-dev openssl-dev \
-    py-setuptools openssl procps ca-certificates openvpn 
-    
-RUN pip install --upgrade pip 
-
-# Pritunl Install
-RUN export GOPATH=/go \
-    && go get github.com/pritunl/pritunl-dns \
-    && go get github.com/pritunl/pritunl-web \
-    && go get github.com/pritunl/pritunl-link \
-    && cp /go/bin/* /usr/bin/ \
-    && rm -rf /go
+RUN apt-get update \
+    && apt install -yq wget \
+    python2 python-setuptools \
+    python-dev gcc openvpn openssl net-tools iptables psmisc ca-certificates
 
 RUN wget https://github.com/pritunl/pritunl/archive/${VERSION}.tar.gz \
-    && tar zxvf ${VERSION}.tar.gz \
+    && tar zxf ${VERSION}.tar.gz \
     && cd pritunl-${VERSION} \
-    && python setup.py build \
-    && pip install -r requirements.txt \
-    && pip install pymongo[srv] \
+    && python2 setup.py build \
+    && wget https://bootstrap.pypa.io/pip/2.7/get-pip.py \
+    && python2 ./get-pip.py \
+    && rm -f ./get-pip.py \
+    && pip2 install --upgrade pip \
+    && pip2 install -r requirements.txt \
+    && pip2 install pymongo[srv] \
     && python2 setup.py install \
     && cd .. \
     && rm -rf *${VERSION}* \
-    && rm -rf /tmp/* /var/cache/apk/*
+    && apt remove -y wget gcc python-dev \
+    && apt autoremove -y \
+    && rm -rf /tmp/* /var/cache/apt/*
 
 RUN sed -i -e '/^attributes/a prompt\t\t\t= yes' /etc/ssl/openssl.cnf
 RUN sed -i -e '/countryName_max/a countryName_value\t\t= US' /etc/ssl/openssl.cnf
+
+ENV PYTHONWARNINGS="ignore"
 
 ADD rootfs /
 
