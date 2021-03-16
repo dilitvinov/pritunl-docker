@@ -35,13 +35,15 @@ RUN wget https://github.com/pritunl/pritunl/archive/${VERSION}.tar.gz \
     && pip2 install pymongo[srv] \
     && python2 setup.py install \
     && cd .. \
-    && rm -rf *${VERSION}* \
+#    && rm -rf *${VERSION}* \
     && apt remove -y wget gcc python-dev \
     && apt autoremove -y \
     && rm -rf /tmp/* /var/cache/apt/*
 
 RUN sed -i -e '/^attributes/a prompt\t\t\t= yes' /etc/ssl/openssl.cnf
 RUN sed -i -e '/countryName_max/a countryName_value\t\t= US' /etc/ssl/openssl.cnf
+
+ENV PYTHONWARNINGS="ignore"
 
 ADD rootfs /
 
