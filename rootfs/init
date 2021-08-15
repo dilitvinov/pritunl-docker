@@ -17,14 +17,12 @@ fi
 export DB_WITH_OPTIONS="$RAW_DB?${MONGODB_OPTIONS:-}"
 pritunl set-mongodb "$DB_WITH_OPTIONS"
 
-if [[ -n "${ENABLE_DNS:-}" ]]; then
-	export DB=${RAW_DB}
-fi
-
-# get actual port | get value from line | trim spaces
-actual_server_port=$(pritunl get app.server_port | cut -d "=" -f2 | awk '{$1=$1};1')
-if [[ "$actual_server_port" -ne "${SERVER_PORT:-443}" ]]; then
-    pritunl set app.server_port "${SERVER_PORT:-443}"
+if [[ "${K8S_INGRESS:false}" == "false" ]] ; then # in k8s ingress mode, web server port is always 80
+    # get actual port | get value from line | trim spaces
+    actual_server_port=$(pritunl get app.server_port | cut -d "=" -f2 | awk '{$1=$1};1')
+    if [[ "$actual_server_port" -ne "${SERVER_PORT:-443}" ]]; then
+        pritunl set app.server_port "${SERVER_PORT:-443}"
+    fi
 fi
 
 # get property | get value | trim | remove quotes 
@@ -38,11 +36,21 @@ if [[ -n "${LIC_KEY:-}" ]] && [[ "$lic_key" != "${LIC_KEY:-}" ]]; then
     pritunl set app.license "${LIC_KEY:-}"
 fi
 
-actual_acme_domain="$(pritunl get app.acme_domain | cut -d "=" -f2 | awk '{$1=$1};1' | sed -e 's/^"//' -e 's/"$//')"
-if [[ -n "${ACME_DOMAIN:-}" ]] && [[ "$actual_acme_domain" != "${ACME_DOMAIN}" ]] ; then
-    pritunl set app.acme_timestamp "$(date +%s)"
-    pritunl set app.acme_key "$(openssl genrsa 4096)"
-    pritunl set app.acme_domain "$ACME_DOMAIN"
+if [[ "${K8S_INGRESS:false}" == "false" ]] ; then # doesn't need a SSL cert while in k8s ingress mode
+    actual_acme_domain="$(pritunl get app.acme_domain | cut -d "=" -f2 | awk '{$1=$1};1' | sed -e 's/^"//' -e 's/"$//')"
+    if [[ -n "${ACME_DOMAIN:-}" ]] && [[ "$actual_acme_domain" != "${ACME_DOMAIN}" ]] ; then
+        pritunl set app.acme_timestamp "$(date +%s)"
+        pritunl set app.acme_key "$(openssl genrsa 4096)"
+        pritunl set app.acme_domain "$ACME_DOMAIN"
+    fi
+fi
+
+reverse_proxy_enabled="$(pritunl get app.reverse_proxy | cut -d "=" -f2 | awk '{$1=$1};1' | sed -e 's/^"//' -e 's/"$//')"
+if [[ "${K8S_INGRESS:false}" == "true" ]] && [[ "$reverse_proxy_enabled" != "true" ]] ; then
+    sudo pritunl set app.reverse_proxy true 
+    sudo pritunl set app.redirect_server false 
+    sudo pritunl set app.server_ssl false 
+    sudo pritunl set app.server_port 80
 fi
 
 pritunl start
