@@ -47,10 +47,10 @@ fi
 
 reverse_proxy_enabled="$(pritunl get app.reverse_proxy | cut -d "=" -f2 | awk '{$1=$1};1' | sed -e 's/^"//' -e 's/"$//')"
 if [[ "${K8S_INGRESS:-false}" == "true" ]] && [[ "$reverse_proxy_enabled" != "true" ]] ; then
-    sudo pritunl set app.reverse_proxy true 
-    sudo pritunl set app.redirect_server false 
-    sudo pritunl set app.server_ssl false 
-    sudo pritunl set app.server_port 80
+    pritunl set app.reverse_proxy true 
+    pritunl set app.redirect_server false 
+    pritunl set app.server_ssl false 
+    pritunl set app.server_port 80
 fi
 
 pritunl start
